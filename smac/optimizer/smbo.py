@@ -258,7 +258,7 @@ class SMBO(object):
                 run_info.config.config_id = self.runhistory.config_ids[run_info.config]
 
                 file_name = os.path.join(tmp.gettempdir(),
-                                         str(run_info.config.config_id) + '.pkl')
+                                         str(run_info.config.config_id) + '.txt')
 
                 print(f"The config is {run_info.config.config_id} is printed to {file_name}")
                 with open(file_name, 'wb') as output:
@@ -474,7 +474,7 @@ class SMBO(object):
             )
         )
         file_name = os.path.join(tmp.gettempdir(),
-                                 str(run_info.config.config_id) + 'end.pkl')
+                                 str(run_info.config.config_id) + 'end.txt')
         print(f"END The config is {run_info.config.config_id} is printed to {file_name}")
         with open(file_name, 'wb') as output:
             pickle.dump(run_info, output, pickle.HIGHEST_PROTOCOL)
