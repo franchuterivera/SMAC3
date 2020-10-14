@@ -3,6 +3,8 @@ import logging
 import numpy as np
 import time
 import typing
+import tempfile as tmp
+import pickle
 
 from smac.configspace import Configuration
 from smac.epm.rf_with_instances import RandomForestWithInstances
@@ -255,6 +257,13 @@ class SMBO(object):
 
                 run_info.config.config_id = self.runhistory.config_ids[run_info.config]
 
+                file_name = os.path.join(tmp.gettempdir(),
+                                         str(run_info.config.config_id) + '.pkl')
+
+                print(f"The config is {run_info.config.config_id} is printed to {file_name}")
+                with open(file_name, 'wb') as output:
+                    pickle.dump(run_info, output, pickle.HIGHEST_PROTOCOL)
+
                 self.tae_runner.submit_run(run_info=run_info)
 
                 # There are 2 criteria that the stats object uses to know
@@ -464,6 +473,11 @@ class SMBO(object):
                 self.runhistory.config_ids.get(run_info.config),
             )
         )
+        file_name = os.path.join(tmp.gettempdir(),
+                                 str(run_info.config.config_id) + 'end.pkl')
+        print(f"END The config is {run_info.config.config_id} is printed to {file_name}")
+        with open(file_name, 'wb') as output:
+            pickle.dump(run_info, output, pickle.HIGHEST_PROTOCOL)
 
         self.runhistory.add(
             config=run_info.config,
