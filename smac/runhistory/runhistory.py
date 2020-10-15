@@ -262,11 +262,11 @@ class RunHistory(object):
             print(f"NOT FOUND config in self.config_ids  {config in self.config_ids}")
             for k, v in self.config_ids.items():
                 print(f"COMPARE {hash(k)}=={hash(config)} {k}=={config}==>{k==config}")
+                print(f"COMPARE __eq__ {hash(k)}=={hash(config)} {k.__eq__(config)}")
+                print(f"COMPARE values {hash(k)}=={hash(config)} {k._values == config._values} {k._values} {config._values}")
+                print(f"COMPARE configuration_space {hash(k)}=={hash(config)} {k.configuration_space == config.configuration_space} {k.configuration_space} {config.configuration_space}")
                 print(f"COMPARE class {hash(k)} {k.__class__}=={config.__class__}")
                 print(f"COMPARE type {hash(k)} {type(k)}=={type(config)}")
-                value = { h : config[h] for h in set(config.__dict__) - set(k.__dict__) }
-                print(f"COMPARE dict {hash(k)} {value}")
-                print(f"COMPARE vars {hash(k)} {vars(k)}=={vars(config)}")
 
 
 
