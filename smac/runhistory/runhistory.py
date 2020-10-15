@@ -2,6 +2,7 @@ import collections
 from enum import Enum
 import json
 import typing
+import numpy as np
 
 import numpy as np
 
@@ -245,6 +246,14 @@ class RunHistory(object):
 
         # Get the config id
         config_id_tmp = self.config_ids.get(config)
+        print("In run history config={} with hash={} value={} config_id={} __repr__={} count={}".format(
+            config,
+            hash(config),
+            config.get_dictionary(),
+            config_id_tmp,
+            config.__repr__(),
+            np.unique([c for c in config.__repr__()], return_counts=True)
+        ))
         if config_id_tmp is None:
             self._n_id += 1
             self.config_ids[config] = self._n_id

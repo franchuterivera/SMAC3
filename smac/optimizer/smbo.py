@@ -237,9 +237,10 @@ class SMBO(object):
                 # history. It's status is tagged as RUNNING, and once
                 # completed and processed, it will be updated accordingly
                 print(
-                    "START Going to add config={} config_id_tmp={}".format(
+                    "START Going to add config={} config_id_tmp={} hash={}".format(
                         run_info.config,
                         self.runhistory.config_ids.get(run_info.config),
+                        hash(run_info.config)
                     )
                 )
                 self.runhistory.add(
@@ -254,6 +255,8 @@ class SMBO(object):
                 )
                 for k, v in self.runhistory.data.items():
                     print(f"RH -- {k}->{v}")
+                for k, v in self.runhistory.config_ids.items():
+                    print(f"RHC -- {k}({hash(k)})->{v}")
 
                 run_info.config.config_id = self.runhistory.config_ids[run_info.config]
 
@@ -468,9 +471,10 @@ class SMBO(object):
             return
 
         print(
-            "END Going to add config={} config_id_tmp={}".format(
+            "END Going to add config={} config_id_tmp={} hash={}".format(
                 run_info.config,
                 self.runhistory.config_ids.get(run_info.config),
+                hash(run_info.config)
             )
         )
         file_name = os.path.join(tmp.gettempdir(),
@@ -500,6 +504,8 @@ class SMBO(object):
         )
         for k, v in self.runhistory.data.items():
             print(f"RH -- {k}->{v}")
+        for k, v in self.runhistory.config_ids.items():
+            print(f"RHC -- {k}({hash(k)})->{v}")
         self.stats.n_configs = len(self.runhistory.config_ids)
 
         if self.scenario.abort_on_first_run_crash :  # type: ignore[attr-defined] # noqa F821
