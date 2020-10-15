@@ -254,6 +254,16 @@ class RunHistory(object):
             config.__repr__(),
             np.unique([c for c in config.__repr__()], return_counts=True)
         ))
+
+        try:
+            print(f"Found config {config} in {self.config_ids[config]}")
+            config_id_tmp = self.config_ids[config]
+        except Exception as e:
+            print(f"NOT FOUND config in self.config_ids  {config in self.config_ids}")
+            for k, v in self.config_ids.items():
+                print(f"COMPARE {hash(k)}=={hash(config)} {k}=={config}==>{k==config}")
+
+
         if config_id_tmp is None:
             self._n_id += 1
             self.config_ids[config] = self._n_id
