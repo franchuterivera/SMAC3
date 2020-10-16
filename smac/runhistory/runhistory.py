@@ -283,10 +283,22 @@ class RunHistory(object):
                                 print(f"difference in id k={k} v={id(v)} configspace_config_dict[k]={id(configspace_config_dict[k])}  {id(v) == id(configspace_config_dict[k])}")
                                 print(f"difference in len k={k} v={len(v)} configspace_config_dict[k]={len(configspace_config_dict[k])} {len(v) == len(configspace_config_dict[k])}")
                                 for i, value in enumerate(v):
+                                    print(f"v[{i}].n_components={v[i].n_components} {configspace_config_dict[k][i].n_components} {v[i].n_components==configspace_config_dict[k][i].n_components}")
+                                    print(f"components tuple comparisson => {v[i].components == configspace_config_dict[k][i].components}")
                                     if v[i] != configspace_config_dict[k][i]:
                                         print(f"{i}/{len(v)} {v[i]} ({type(v[i])}) != {configspace_config_dict[k][i]} ({type(configspace_config_dict[k][i])}) {type(v[i]) == type(configspace_config_dict[k][i])}")
                                         print(f"{i}/{len(v)} {v[i]} ({id(v[i])}) != {configspace_config_dict[k][i]} ({id(configspace_config_dict[k][i])}) {id(v[i]) == id(configspace_config_dict[k][i])}")
-                                print(list(set(v) - set(configspace_config_dict[k])))
+                                    if v[i] == configspace_config_dict[k][i]:
+                                        pass
+                                    else:
+                                        print(f"{i}/{len(v)} {v[i]} ({type(v[i])}) != {configspace_config_dict[k][i]} ({type(configspace_config_dict[k][i])}) {type(v[i]) == type(configspace_config_dict[k][i])}")
+                                        print(f"{i}/{len(v)} {v[i]} ({id(v[i])}) != {configspace_config_dict[k][i]} ({id(configspace_config_dict[k][i])}) {id(v[i]) == id(configspace_config_dict[k][i])}")
+                                    for j, value in enumerate(v[i].components):
+                                        if v[i].components[j] == configspace_config_dict[k][i].components[j]:
+                                            pass
+                                        else:
+                                            print(f"Difference in {v[i].components[j]} {configspace_config_dict[k][i].components[j]} {configspace_config_dict[k][i].components[j].value == v[i].components[j].value}  {configspace_config_dict[k][i].components[j].hyperparameter.name == v[i].components[j].hyperparameter.name}")
+                                            print(f"Difference in hyperparameter {configspace_config_dict[k][i].components[j].hyperparameter == v[i].components[j].hyperparameter}")
                         except Exception as e:
                             print(e)
                             print(f"In exception k={k} v={v} other={configspace_config_dict[k]}")
