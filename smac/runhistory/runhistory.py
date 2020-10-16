@@ -279,6 +279,14 @@ class RunHistory(object):
                                 print(f"numpy array different {v} for k={k}")
                             elif v != configspace_config_dict[k]:
                                 print(f"difference in k={k} v={v} configspace_config_dict[k]={configspace_config_dict[k]}")
+                                print(f"difference in type k={k} v={type(v)} configspace_config_dict[k]={type(configspace_config_dict[k])}  {type(v) == type(configspace_config_dict[k])}")
+                                print(f"difference in id k={k} v={id(v)} configspace_config_dict[k]={id(configspace_config_dict[k])}  {id(v) == id(configspace_config_dict[k])}")
+                                print(f"difference in len k={k} v={len(v)} configspace_config_dict[k]={len(configspace_config_dict[k])} {len(v) == len(configspace_config_dict[k])}")
+                                for i, value in enumerate(v):
+                                    if v[i] != configspace_config_dict[k][i]:
+                                        print(f"{i}/{len(v)} {v[i]} ({type(v[i])}) != {configspace_config_dict[k][i]} ({type(configspace_config_dict[k][i])}) {type(v[i]) == type(configspace_config_dict[k][i])}")
+                                        print(f"{i}/{len(v)} {v[i]} ({id(v[i])}) != {configspace_config_dict[k][i]} ({id(configspace_config_dict[k][i])}) {id(v[i]) == id(configspace_config_dict[k][i])}")
+                                print(list(set(v) - set(configspace_config_dict[k])))
                         except Exception as e:
                             print(e)
                             print(f"In exception k={k} v={v} other={configspace_config_dict[k]}")
