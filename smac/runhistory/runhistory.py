@@ -265,9 +265,22 @@ class RunHistory(object):
                 print(f"COMPARE __eq__ {hash(k)}=={hash(config)} {k.__eq__(config)}")
                 print(f"COMPARE values {hash(k)}=={hash(config)} {k._values == config._values} {k._values} {config._values}")
                 print(f"COMPARE configuration_space {hash(k)}=={hash(config)} {k.configuration_space == config.configuration_space} {k.configuration_space} {config.configuration_space}")
+                print(f"COMPARE configuration_space class {hash(k)}=={hash(config)} {k.configuration_space.__class__} {config.configuration_space.__class__}")
+                configspace_k_dict = k.configuration_space.__dict__.copy()
+                del configspace_k_dict['random']
+                configspace_config_dict = config.configuration_space.__dict__.copy()
+                del configspace_config_dict['random']
+                print(f"COMPARE configuration_space dict {configspace_k_dict==configspace_config_dict}")
+                print(set(configspace_k_dict.keys()) ^ set(configspace_config_dict.keys()))
+                for k, v in configspace_k_dict.items():
+                    try:
+                        if isinstance(v, np.ndarray) and not np.array_equal(v, configspace_config_dict[k]):
+                            print(f"numpy array different {v} for k={k}")
+                        elif v != configspace_config_dict[k]:
+                            print(f"difference in k={k} v={v} configspace_config_dict[k]={configspace_config_dict[k]}")
+                    except Exception as e:
+                        print(e)
                 print(f"COMPARE class {hash(k)} {k.__class__}=={config.__class__}")
-                print(f"COMPARE type {hash(k)} {type(k)}=={type(config)}")
-
 
 
         if config_id_tmp is None:
