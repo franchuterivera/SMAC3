@@ -255,6 +255,7 @@ class SMBO(object):
                 )
 
                 run_info.config.config_id = self.runhistory.config_ids[run_info.config]
+                self.logger.critical(f"Proposing to run config {run_info.config.config_id} on instance {run_info.instance}")
 
                 self.tae_runner.submit_run(run_info=run_info)
 
@@ -463,6 +464,7 @@ class SMBO(object):
             additional_info=result.additional_info,
         )
         self.stats.n_configs = len(self.runhistory.config_ids)
+        self.logger.critical(f"Registering the result of config {run_info.config.config_id} on instance {run_info.instance} ith status={result.status} cost={result.cost}")
 
         if result.status == StatusType.ABORT:
             raise TAEAbortException("Target algorithm status ABORT - SMAC will "

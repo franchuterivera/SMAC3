@@ -936,7 +936,7 @@ class _SuccessiveHalving(AbstractRacer):
         config_costs = {}
         # sample list instance-seed-budget key to act as base
         run_key = run_history.get_runs_for_config(configs[0], only_max_observed_budget=True)
-        for c in configs:
+        for i, c in enumerate(configs):
             # ensuring that all configurations being compared are run on the same set of instance, seed & budget
             cur_run_key = run_history.get_runs_for_config(c, only_max_observed_budget=True)
 
@@ -944,6 +944,9 @@ class _SuccessiveHalving(AbstractRacer):
             # which is not an ordered structure. Some queries to that dictionary returned unordered
             # list which wrongly trigger the below if
             if set(cur_run_key) != set(run_key):
+                for k, v in run_history.items():
+                    self.logger.critical(f"{k}->{v}")
+                self.logger.critical(f"configs = {[run_history.config_ids.get(the_config) for the_config in configs]} problematic={run_key} i={i}")
                 raise ValueError(
                     'Cannot compare configs that were run on different instances-seeds-budgets: %s vs %s'
                     % (run_key, cur_run_key)

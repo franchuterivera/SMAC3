@@ -271,6 +271,7 @@ class _Hyperband(_SuccessiveHalving):
         sh_initial_budget = self.eta ** -self.s * self.max_budget
         # sample challengers for next iteration (based on HpBandster package)
         n_challengers = int(np.floor((self.s_max + 1) / (self.s + 1)) * self.eta ** self.s)
+        self.logger.critical(f"\n\nHyperband iter={self.hb_iters + 1} step={self.s+1}/{self.s_max} sh_initial_budget={sh_initial_budget} n_challengers={n_challengers}")
 
         # Compute this for the next round
         n_configs_in_stage = n_challengers * np.power(self.eta, -np.linspace(0, self.s, self.s + 1))
