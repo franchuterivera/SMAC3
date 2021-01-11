@@ -19,6 +19,7 @@
     "flaky",
     "openml",
     "pre-commit",
+    "pytest-forked",
     "pytest-cov"
   ],
   "examples": [
