@@ -29,7 +29,8 @@ class EPMChooser(object):
                  restore_incumbent: Configuration = None,
                  random_configuration_chooser: typing.Union[RandomConfigurationChooser] = ChooserNoCoolDown(2.0),
                  predict_x_best: bool = True,
-                 min_samples_model: int = 1
+                 min_samples_model: int = 1,
+                 force_all_budgets_in_epm: bool = False,
                  ):
         """
         Interface to train the EPM and generate next configurations
@@ -59,6 +60,10 @@ class EPMChooser(object):
             Choose x_best for computing the acquisition function via the model instead of via the observations.
         min_samples_model: int
 -            Minimum number of samples to build a model
+        force_all_budgets_in_epm: bool
+            By default only the highest budget is used to build the model. When this is try, all
+            budgets from the runhistory are employed to build the model
+
         """
 
         self.logger = logging.getLogger(
@@ -86,30 +91,40 @@ class EPMChooser(object):
         self.predict_x_best = predict_x_best
 
         self.min_samples_model = min_samples_model
+        self.force_all_budgets_in_epm = force_all_budgets_in_epm
         self.currently_considered_budgets = [0.0, ]
 
     def _collect_data_to_train_model(self) -> typing.Tuple[np.ndarray, np.ndarray, np.ndarray]:
         # if we use a float value as a budget, we want to train the model only on the highest budget
-        available_budgets = []
-        for run_key in self.runhistory.data.keys():
-            available_budgets.append(run_key.budget)
-
-        # Sort available budgets from highest to lowest budget
-        available_budgets = sorted(list(set(available_budgets)), reverse=True)
-
-        # Get #points per budget and if there are enough samples, then build a model
-        for b in available_budgets:
-            X, Y = self.rh2EPM.transform(self.runhistory, budget_subset=[b, ])
+        if self.force_all_budgets_in_epm:
+            X, Y = self.rh2EPM.transform(self.runhistory, budget_subset=None)
             if X.shape[0] >= self.min_samples_model:
-                self.currently_considered_budgets = [b, ]
                 configs_array = self.rh2EPM.get_configurations(
-                    self.runhistory, budget_subset=self.currently_considered_budgets)
+                    self.runhistory, budget_subset=None)
                 return X, Y, configs_array
+        else:
+            available_budgets = []
+            for run_key in self.runhistory.data.keys():
+                available_budgets.append(run_key.budget)
+
+            # Sort available budgets from highest to lowest budget
+            available_budgets = sorted(list(set(available_budgets)), reverse=True)
+
+            # Get #points per budget and if there are enough samples, then build a model
+            for b in available_budgets:
+                X, Y = self.rh2EPM.transform(self.runhistory, budget_subset=[b, ])
+                if X.shape[0] >= self.min_samples_model:
+                    self.currently_considered_budgets = [b, ]
+                    configs_array = self.rh2EPM.get_configurations(
+                        self.runhistory, budget_subset=self.currently_considered_budgets)
+                    return X, Y, configs_array
 
         return np.empty(shape=[0, 0]), np.empty(shape=[0, ]), np.empty(shape=[0, 0])
 
     def _get_evaluated_configs(self) -> typing.List[Configuration]:
-        return self.runhistory.get_all_configs_per_budget(budget_subset=self.currently_considered_budgets)
+        return self.runhistory.get_all_configs_per_budget(
+            budget_subset=self.currently_considered_budgets if not self.force_all_budgets_in_epm
+            else None)
 
     def choose_next(self, incumbent_value: float = None) -> typing.Iterator[Configuration]:
         """Choose next candidate solution with Bayesian optimization. The
@@ -195,7 +210,9 @@ class EPMChooser(object):
             best_observation = costs[0][0]
             # won't need log(y) if EPM was already trained on log(y)
         else:
-            all_configs = self.runhistory.get_all_configs_per_budget(budget_subset=self.currently_considered_budgets)
+            all_configs = self.runhistory.get_all_configs_per_budget(
+                budget_subset=None if self.force_all_budgets_in_epm
+                else self.currently_considered_budgets)
             x_best = self.incumbent
             x_best_array = convert_configurations_to_array(all_configs)
             best_observation = self.runhistory.get_cost(x_best)
