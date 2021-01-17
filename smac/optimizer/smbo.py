@@ -70,7 +70,9 @@ class SMBO(object):
                  restore_incumbent: Configuration = None,
                  random_configuration_chooser: typing.Union[RandomConfigurationChooser] = ChooserNoCoolDown(2.0),
                  predict_x_best: bool = True,
-                 min_samples_model: int = 1):
+                 min_samples_model: int = 1,
+                 force_all_budgets_in_epm: bool = False,
+                 ):
         """
         Interface that contains the main Bayesian optimization loop
 
@@ -112,6 +114,8 @@ class SMBO(object):
             Choose x_best for computing the acquisition function via the model instead of via the observations.
         min_samples_model: int
 -            Minimum number of samples to build a model
+        force_all_budgets_in_epm: bool
+            Whether to force or not all the budgets in the EPM
         """
 
         self.logger = logging.getLogger(
@@ -128,6 +132,7 @@ class SMBO(object):
         self.rng = rng
         self._min_time = 10 ** -5
         self.tae_runner = tae_runner
+        self.force_all_budgets_in_epm = force_all_budgets_in_epm
 
         self.initial_design_configs = []  # type: typing.List[Configuration]
 
@@ -143,6 +148,7 @@ class SMBO(object):
                                       restore_incumbent=restore_incumbent,
                                       random_configuration_chooser=random_configuration_chooser,
                                       predict_x_best=predict_x_best,
+                                      force_all_budgets_in_epm=self.force_all_budgets_in_epm,
                                       min_samples_model=min_samples_model)
 
         # Internal variable - if this is set to True it will gracefully stop SMAC
@@ -465,6 +471,8 @@ class SMBO(object):
         )
         self.stats.n_configs = len(self.runhistory.config_ids)
         self.logger.critical(f"Registering the result of config {run_info.config.config_id} on instance {run_info.instance} ith status={result.status} cost={result.cost}")
+        for k, v in self.runhistory.data.items():
+            self.logger.critical(f"{k}->{v}")
 
         if result.status == StatusType.ABORT:
             raise TAEAbortException("Target algorithm status ABORT - SMAC will "
