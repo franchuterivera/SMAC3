@@ -422,6 +422,14 @@ class RunHistory(object):
         rval = [InstSeedBudgetKey(k.instance, k.seed, budget) for k, v in runs.items() for budget in v]
         return rval
 
+    def is_highest_budget_for_config(self, run_key: RunKey) -> bool:
+        """
+        Returns true if the provided run_key corresponds to the
+        highest budget available for a given configuration
+        """
+        max_budgets = max([key.budget for key in self.data.keys() if key.config_id == run_key.config_id])
+        return max_budgets == run_key.budget
+
     def get_all_configs(self) -> typing.List[Configuration]:
         """Return all configurations in this RunHistory object
 
@@ -434,6 +442,7 @@ class RunHistory(object):
     def get_all_configs_per_budget(
         self,
         budget_subset: typing.Optional[typing.List] = None,
+        max_budget_seen_per_config: bool = False,
     ) -> typing.List[Configuration]:
         """
         Return all configs in this RunHistory object that have been run on one of these budgets
@@ -449,9 +458,12 @@ class RunHistory(object):
         if budget_subset is None:
             return self.get_all_configs()
         configs = []
-        for c, i, s, b in self.data.keys():
-            if b in budget_subset:
-                configs.append(self.ids_config[c])
+        if max_budget_seen_per_config:
+            return [self.ids_config[run_key.config_id] for run_key in self.data.keys() if self.is_highest_budget_for_config(run_key)]
+        else:
+            for c, i, s, b in self.data.keys():
+                if b in budget_subset:
+                    configs.append(self.ids_config[c])
         return configs
 
     def get_min_cost(self, config: Configuration) -> float:

@@ -177,9 +177,21 @@ class AbstractRunHistory2EPM(object):
         self,
         runhistory: RunHistory,
         budget_subset: typing.Optional[typing.List] = None,
+        max_budget_seen_per_config: bool = False,
     ) -> typing.Dict[RunKey, RunValue]:
         # Get only successfully finished runs
-        if budget_subset is not None:
+        if max_budget_seen_per_config:
+            s_run_dict = {run: runhistory.data[run] for run in runhistory.data.keys()
+                          # Here we check if the runkey is for the highest budget seen for
+                          # this configuration
+                          if runhistory.is_highest_budget_for_config(run)
+                          and runhistory.data[run].status in self.success_states}
+            # Additionally add these states from lower budgets
+            add = {run: runhistory.data[run] for run in runhistory.data.keys()
+                   if runhistory.data[run].status in self.consider_for_higher_budgets_state
+                   and not runhistory.is_highest_budget_for_config(run)}
+            s_run_dict.update(add)
+        elif budget_subset is not None:
             if len(budget_subset) != 1:
                 raise ValueError("Cannot yet handle getting runs from multiple budgets")
             s_run_dict = {run: runhistory.data[run] for run in runhistory.data.keys()
@@ -199,8 +211,14 @@ class AbstractRunHistory2EPM(object):
             self,
             runhistory: RunHistory,
             budget_subset: typing.Optional[typing.List] = None,
+            max_budget_seen_per_config: bool = False,
     ) -> typing.Dict[RunKey, RunValue]:
-        if budget_subset is not None:
+        if max_budget_seen_per_config:
+            t_run_dict = {run: runhistory.data[run] for run in runhistory.data.keys()
+                          if runhistory.data[run].status == StatusType.TIMEOUT
+                          and runhistory.data[run].time >= self.cutoff_time
+                          and runhistory.is_highest_budget_for_config(run)}
+        elif budget_subset is not None:
             t_run_dict = {run: runhistory.data[run] for run in runhistory.data.keys()
                           if runhistory.data[run].status == StatusType.TIMEOUT
                           and runhistory.data[run].time >= self.cutoff_time
@@ -215,6 +233,7 @@ class AbstractRunHistory2EPM(object):
         self,
         runhistory: RunHistory,
         budget_subset: typing.Optional[typing.List] = None,
+        max_budget_seen_per_config: bool = False,
     ) -> np.ndarray:
         """Returns vector representation of only the configurations.
 
@@ -230,9 +249,9 @@ class AbstractRunHistory2EPM(object):
         -------
         numpy.ndarray
         """
-        s_runs = self._get_s_run_dict(runhistory, budget_subset)
+        s_runs = self._get_s_run_dict(runhistory, budget_subset, max_budget_seen_per_config)
         s_config_ids = set(s_run.config_id for s_run in s_runs)
-        t_runs = self._get_t_run_dict(runhistory, budget_subset)
+        t_runs = self._get_t_run_dict(runhistory, budget_subset, max_budget_seen_per_config)
         t_config_ids = set(t_run.config_id for t_run in t_runs)
         config_ids = s_config_ids | t_config_ids
         configurations = [runhistory.ids_config[config_id] for config_id in config_ids]
@@ -243,6 +262,7 @@ class AbstractRunHistory2EPM(object):
         self,
         runhistory: RunHistory,
         budget_subset: typing.Optional[typing.List] = None,
+        max_budget_seen_per_config: bool = False,
     ) -> typing.Tuple[np.ndarray, np.ndarray]:
         """Returns vector representation of runhistory; if imputation is
         disabled, censored (TIMEOUT with time < cutoff) will be skipped
@@ -262,12 +282,12 @@ class AbstractRunHistory2EPM(object):
         """
         self.logger.debug("Transform runhistory into X,y format")
 
-        s_run_dict = self._get_s_run_dict(runhistory, budget_subset)
+        s_run_dict = self._get_s_run_dict(runhistory, budget_subset, max_budget_seen_per_config)
         X, Y = self._build_matrix(run_dict=s_run_dict, runhistory=runhistory,
                                   store_statistics=True)
 
         # Get real TIMEOUT runs
-        t_run_dict = self._get_t_run_dict(runhistory, budget_subset)
+        t_run_dict = self._get_t_run_dict(runhistory, budget_subset, max_budget_seen_per_config)
         # use penalization (e.g. PAR10) for EPM training
         store_statistics = True if np.isnan(self.min_y) else False
         tX, tY = self._build_matrix(run_dict=t_run_dict, runhistory=runhistory,
@@ -280,7 +300,12 @@ class AbstractRunHistory2EPM(object):
 
         if self.impute_censored_data:
             # Get all censored runs
-            if budget_subset is not None:
+            if max_budget_seen_per_config:
+                c_run_dict = {run: runhistory.data[run] for run in runhistory.data.keys()
+                              if runhistory.data[run].status in self.impute_state
+                              and runhistory.data[run].time < self.cutoff_time
+                              and runhistory.is_highest_budget_for_config(run)}
+            elif budget_subset is not None:
                 c_run_dict = {run: runhistory.data[run] for run in runhistory.data.keys()
                               if runhistory.data[run].status in self.impute_state
                               and runhistory.data[run].time < self.cutoff_time

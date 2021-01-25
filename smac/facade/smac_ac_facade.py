@@ -77,6 +77,7 @@ class SMAC4AC(object):
                  scenario: Scenario,
                  tae_runner: Optional[Union[Type[BaseRunner], Callable]] = None,
                  tae_runner_kwargs: Optional[Dict] = None,
+                 smbo_kwargs: Optional[Dict] = None,
                  runhistory: Optional[Union[Type[RunHistory], RunHistory]] = None,
                  runhistory_kwargs: Optional[Dict] = None,
                  intensifier: Optional[Type[AbstractRacer]] = None,
@@ -119,6 +120,8 @@ class SMAC4AC(object):
             :class:`~smac.tae.execute_ta_run_old.ExecuteTARunOld`.
         tae_runner_kwargs: Optional[Dict]
             arguments passed to constructor of '~tae_runner'
+        smbo_kwargs: Optional[Dict]
+            arguments passed to constructor of '~SMBO'
         runhistory : RunHistory
             runhistory to store all algorithm runs
         runhistory_kwargs : Optional[Dict]
@@ -576,6 +579,9 @@ class SMAC4AC(object):
             'random_configuration_chooser': random_configuration_chooser_instance,
             'tae_runner': tae_runner_instance,
         }  # type: Dict[str, Any]
+
+        if smbo_kwargs is not None:
+            smbo_args.update(smbo_kwargs)
 
         if smbo_class is None:
             self.solver = SMBO(**smbo_args)  # type: ignore[arg-type] # noqa F821

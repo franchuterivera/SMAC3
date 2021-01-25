@@ -70,7 +70,9 @@ class SMBO(object):
                  restore_incumbent: Configuration = None,
                  random_configuration_chooser: typing.Union[RandomConfigurationChooser] = ChooserNoCoolDown(2.0),
                  predict_x_best: bool = True,
-                 min_samples_model: int = 1):
+                 min_samples_model: int = 1,
+                 max_budget_seen_per_config: bool = False,
+                 ):
         """
         Interface that contains the main Bayesian optimization loop
 
@@ -143,7 +145,9 @@ class SMBO(object):
                                       restore_incumbent=restore_incumbent,
                                       random_configuration_chooser=random_configuration_chooser,
                                       predict_x_best=predict_x_best,
-                                      min_samples_model=min_samples_model)
+                                      min_samples_model=min_samples_model,
+                                      max_budget_seen_per_config=max_budget_seen_per_config,
+                                      )
 
         # Internal variable - if this is set to True it will gracefully stop SMAC
         self._stop = False
