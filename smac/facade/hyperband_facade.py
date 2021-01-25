@@ -45,7 +45,7 @@ class HB4AC(ROAR):
         intensifier_kwargs['min_chall'] = 1
         if intensifier_kwargs.get('eta') is None:
             intensifier_kwargs['eta'] = 3
-        if intensifier_kwargs.get('instance_order') is None:
+        if 'instance_order' not in intensifier_kwargs:
             intensifier_kwargs['instance_order'] = 'shuffle_once'
         kwargs['intensifier_kwargs'] = intensifier_kwargs
 
