@@ -53,7 +53,8 @@ class SMAC4HPO(SMAC4AC):
 
         # Intensification parameters - which intensifier to use and respective parameters
         intensifier_kwargs = kwargs.get('intensifier_kwargs', dict())
-        intensifier_kwargs['min_chall'] = 1
+        if 'min_chall' not in intensifier_kwargs:
+            intensifier_kwargs['min_chall'] = 1
         kwargs['intensifier_kwargs'] = intensifier_kwargs
         scenario.intensification_percentage = 1e-10
 
