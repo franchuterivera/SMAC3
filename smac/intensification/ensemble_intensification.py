@@ -82,10 +82,11 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
         maxE: int = 50,
         min_chall: int = 1,
         adaptive_capping_slackfactor: float = 1.2,
-        performance_threshold_to_intensify_new_config: float = 1.05,
+        performance_threshold_to_intensify_new_config: float = 1.00,
     ):
         # make sure instnaces are numeric
-        instances = [int(i) for i in instances]
+        self.instance2id = {element: i for i, element in enumerate(instances)}
+        self.id2instance = {i: element for i, element in enumerate(instances)}
 
         super().__init__(stats=stats,
                          traj_logger=traj_logger,
@@ -98,7 +99,7 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
                          # Minimum number of repetitions is 1
                          minR=1,
                          # Highest repetition is the max run per config
-                         maxR=max(instances),
+                         maxR=max(list(self.id2instance.keys())),
                          min_chall=min_chall,
                          adaptive_capping_slackfactor=adaptive_capping_slackfactor,
                          )
@@ -131,7 +132,7 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
 
         if self.run_obj_time:
             raise NotImplementedError()
-        self.logger.debug(f"Intensifier instances={instances} for {self.maxE} incumbents")
+        self.logger.info(f"Intensifier instances={self.id2instance} for {self.maxE} incumbents")
 
     def get_next_run(self,
                      challengers: typing.Optional[typing.List[Configuration]],
@@ -182,33 +183,28 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
                 chooser=chooser,
             )
             # Run the config in the new budget
-            instance = min(self.instances)
-            #self.logger.critical(f"NEXT_RUN new challenger!")
+            instance_id = 0
         elif self.stage == EnsembleIntensifierStage.RUN_OLD_CHALLENGER_ON_HIGHER_REPEAT:
             # Self.challenger stays the same. There is promise of a good result
             # with this configuration
 
             # Run the config in the new repetition
-            instance = self.get_config_highest_repeat(run_history=run_history,
-                                                      challenger=self.challenger) + 1
-            #self.logger.critical(f"NEXT_RUN same challenger {run_history.config_ids.get(self.challenger)} but on {instance}")
+            instance_id = self.get_config_highest_instance(run_history=run_history,
+                                                           challenger=self.challenger) + 1
         elif self.stage == EnsembleIntensifierStage.INTENSIFY_MEMBERS_REPETITIONS:
             ensemble_members = self.get_ensemble_members(run_history=run_history)
             repetitions = [r for l, r, c in ensemble_members]
             max_repetition = max(repetitions)
-            if all([r == max_repetition for r in repetitions]) and max_repetition < max(
-                    self.instances):
+            if all([r == max_repetition for r in repetitions]) and max_repetition < max(list(self.id2instance.keys())):
                 self.challenger = ensemble_members[0][2]
-                instance = ensemble_members[0][1] + 1
-                #self.logger.critical(f"NEXT_RUN new instance {instance} on config={run_history.config_ids.get(ensemble_members[0][2])} porposed")
+                instance_id = ensemble_members[0][1] + 1
             elif any([r < max_repetition for r in repetitions]):
                 not_in_higest_repeat = [member for member in ensemble_members
                                         if member[1] < max_repetition]
 
                 # List is sorted so prioritize good configs
                 self.challenger = not_in_higest_repeat[0][2]
-                instance = not_in_higest_repeat[0][1] + 1
-                #self.logger.critical(f"NEXT_RUN take lower config {run_history.config_ids.get(not_in_higest_repeat[0][2])} to higher instance {instance}")
+                instance_id = not_in_higest_repeat[0][1] + 1
             else:
                 # All configs in maximum repetition, here search like crazy for a better
                 # configuration
@@ -235,10 +231,10 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
                 budget=0.0,
             )
 
-        if instance not in self.instances:
+        if instance_id not in self.id2instance:
             for run_key, run_value in run_history.data.items():
                 self.logger.error(f"{run_key}->{run_value}")
-            raise ValueError(f"While at stage {self.stage} proposed to run {instance}/{self.instances}")
+            raise ValueError(f"While at stage {self.stage} proposed to run {instance_id}/{self.id2instance}")
 
         if self.deterministic:
             seed = 0
@@ -247,22 +243,31 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
 
         return RunInfoIntent.RUN, RunInfo(
             config=self.challenger,
-            instance=instance,
-            instance_specific=self.instance_specifics.get(instance, "0"),
+            instance=self.id2instance[instance_id],
+            instance_specific=self.instance_specifics.get(self.id2instance[instance_id], "0"),
             seed=seed,
             cutoff=self.cutoff,
             capped=False,
             budget=0.0,
         )
 
-    def get_config_highest_repeat(
+    def get_config_highest_instance(
         self,
         challenger: Configuration,
         run_history: RunHistory,
     ) -> int:
         runs_for_config = run_history.get_runs_for_config(config=challenger,
                                                           only_max_observed_budget=False)
-        return max([k.instance for k in runs_for_config])
+        return max([self.instance2id[k.instance] for k in runs_for_config])
+
+    def is_highest_instance_for_config(self, run_history, run_key) -> bool:
+        """
+        Returns true if the provided run_key corresponds to the
+        highest instance available for a given configuration
+        """
+        max_instance = max([self.instance2id[key.instance_id] for key in run_history.data.keys()
+                            if key.config_id == run_key.config_id])
+        return max_instance == self.instance2id[run_key.instance_id]
 
     def get_ensemble_members(
         self,
@@ -271,9 +276,9 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
 
         ensemble_members = []
         for run_key, run_value in run_history.data.items():
-            if run_history.is_highest_instance_for_config(run_key):
+            if self.is_highest_instance_for_config(run_history, run_key):
                 ensemble_members.append(
-                    (run_value.cost, run_key.instance_id, run_history.ids_config[run_key.config_id])
+                    (run_value.cost, self.instance2id[run_key.instance_id], run_history.ids_config[run_key.config_id])
                 )
         if len(ensemble_members) == 0:
             # No configs yet!
@@ -344,11 +349,10 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
                 self.num_chall_run += 1
 
             repetitions = [r for l, r, c in ensemble_members]
-            repetitions_on_max = [r for r in repetitions if r == max(self.instances)]
+            repetitions_on_max = [r for r in repetitions if r == max(list(self.id2instance))]
 
             if len(ensemble_members) < self.min_chall:
                 # Not enough challengers to start intensification of repetitions
-                #self.logger.critical(f"TRANSITION: only have {len(ensemble_members)} ensemble_members so stay in {self.stage}")
                 self.stage = EnsembleIntensifierStage.RUN_NEW_CHALLENGER
             else:
                 # Now we have enough challengers.
@@ -378,19 +382,17 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
                                                     key=lambda i: abs(losses[i] - result.cost))
                 #self.logger.critical(f"c = {run_info.config.config_id} index_new_config={index_new_config} index_of_similar_loss={index_of_similar_loss} {result.cost} < {lower_bound_performance}")
 
-                if result.cost < lower_bound_performance and run_info.instance < repetitions[index_of_similar_loss]:
+                if result.cost < lower_bound_performance and self.instance2id[run_info.instance] < repetitions[index_of_similar_loss]:
                     # This means that the new config found in EnsembleIntensifierStage.RUN_NEW_CHALLENGER
                     # has better performance than the worst ensemble candidate, but sady
                     # is not going to be used by the ensemble selection as it is
                     # because we need it on a higher instance. So run this in a higher
                     # instance. What instance/repetition. Well it make sense to match it to
                     # the instance that has the most similar loss
-                    #self.logger.critical(f"TRANSITION: {self.stage}->{EnsembleIntensifierStage.RUN_OLD_CHALLENGER_ON_HIGHER_REPEAT} as  c={run_history.config_ids.get(self.challenger)} (c={run_info.config.config_id}) with {result} promising loss ({result.cost} < {lower_bound_performance}) and instance ({run_info.instance} < {repetitions[index_of_similar_loss]}(index_of_similar_loss={index_of_similar_loss}))")
                     self.stage = EnsembleIntensifierStage.RUN_OLD_CHALLENGER_ON_HIGHER_REPEAT
                 elif len(ensemble_members) < self.maxE or len(repetitions_on_max) < self.maxE:
                     # We do not have all members yet or not all are on highest budget
                     # so we toggle between looking for new configs and repetition intensification
-                    #self.logger.critical(f"TRANSITION: {self.stage}->{EnsembleIntensifierStage.INTENSIFY_MEMBERS_REPETITIONS} as only {len(ensemble_members)}/{self.maxE} members and {len(repetitions_on_max)} configs on max budget")
                     self.stage = EnsembleIntensifierStage.INTENSIFY_MEMBERS_REPETITIONS
                 else:
                     # If reached this point:
@@ -398,12 +400,10 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
                     #   Also, they are all in the highest repetition.
                     # + Not enought number of configs to intensify repeats according to self.min_chall
                     # we want to keep finding new configurations
-                    #self.logger.critical(f"TRANSITION: {self.stage}->{EnsembleIntensifierStage.RUN_NEW_CHALLENGER} as {len(ensemble_members)}/{self.maxE} members and {len(repetitions_on_max)} configs on max budget")
                     self.stage = EnsembleIntensifierStage.RUN_NEW_CHALLENGER
         elif self.stage == EnsembleIntensifierStage.INTENSIFY_MEMBERS_REPETITIONS:
             # we already spend budget on repetition intensification,
             # toggle to find a better configuration
-            #self.logger.critical(f"TRANSITION: {self.stage}->{EnsembleIntensifierStage.RUN_NEW_CHALLENGER} to toggle result use")
             self.stage = EnsembleIntensifierStage.RUN_NEW_CHALLENGER
 
         if incumbent is None:

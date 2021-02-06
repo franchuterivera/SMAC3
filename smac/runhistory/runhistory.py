@@ -430,14 +430,6 @@ class RunHistory(object):
         max_budgets = max([key.budget for key in self.data.keys() if key.config_id == run_key.config_id])
         return max_budgets == run_key.budget
 
-    def is_highest_instance_for_config(self, run_key: RunKey) -> bool:
-        """
-        Returns true if the provided run_key corresponds to the
-        highest instance available for a given configuration
-        """
-        max_instance = max([key.instance_id for key in self.data.keys() if key.config_id == run_key.config_id])
-        return max_instance == run_key.instance_id
-
     def get_all_configs(self) -> typing.List[Configuration]:
         """Return all configurations in this RunHistory object
 
