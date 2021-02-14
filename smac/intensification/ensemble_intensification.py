@@ -266,7 +266,8 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
         highest instance available for a given configuration
         """
         max_instance = max([self.instance2id[key.instance_id] for key in run_history.data.keys()
-                            if key.config_id == run_key.config_id])
+                            # This is done for warm starting runhistory
+                            if key.instance_id in self.instance2id and key.config_id == run_key.config_id])
         return max_instance == self.instance2id[run_key.instance_id]
 
     def get_ensemble_members(
@@ -276,6 +277,8 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
 
         ensemble_members = []
         for run_key, run_value in run_history.data.items():
+            # This means we have read a past run history
+            if run_key.instance_id not in self.instance2id: continue
             if self.is_highest_instance_for_config(run_history, run_key):
                 ensemble_members.append(
                     (run_value.cost, self.instance2id[run_key.instance_id], run_history.ids_config[run_key.config_id])
