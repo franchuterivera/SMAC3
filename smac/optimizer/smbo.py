@@ -218,6 +218,7 @@ class SMBO(object):
                 repeat_configs=self.intensifier.repeat_configs,
                 num_workers=self.tae_runner.num_workers(),
             )
+            self.logger.critical(f"OPTIMIZER: {intent} {run_info}")
 
             # remove config from initial design challengers to not repeat it again
             self.initial_design_configs = [c for c in self.initial_design_configs if c != run_info.config]
