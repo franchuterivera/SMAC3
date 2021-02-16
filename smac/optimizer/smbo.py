@@ -241,6 +241,7 @@ class SMBO(object):
             # For example, during intensifier intensification, we
             # don't want to rerun a config that was previously ran
             if intent == RunInfoIntent.RUN:
+                self.logger.critical(f"Proposing to run {run_info}")
                 # Track the fact that a run was launched in the run
                 # history. It's status is tagged as RUNNING, and once
                 # completed and processed, it will be updated accordingly
@@ -270,12 +271,14 @@ class SMBO(object):
                 # No launch is required
                 # This marks a transition request from the intensifier
                 # To a new iteration
+                self.logger.critical(f"Skip from SMBO")
                 pass
             elif intent == RunInfoIntent.WAIT:
                 # In any other case, we wait for resources
                 # This likely indicates that no further decision
                 # can be taken by the intensifier until more data is
                 # available
+                self.logger.critical(f"SMBO will wait for resources")
                 self.tae_runner.wait()
             else:
                 raise NotImplementedError("No other RunInfoIntent has been coded!")
@@ -489,7 +492,9 @@ class SMBO(object):
             result=result,
         )
 
+        self.logger.critical(f"Going to call callback after processing {run_info}")
         for callback in self._callbacks['_incorporate_run_results']:
             callback(smbo=self, run_info=run_info, result=result, time_left=time_left)
+        self.logger.critical(f"Finished callbacks for {run_info}")
 
         return
