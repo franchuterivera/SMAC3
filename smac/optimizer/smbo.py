@@ -280,6 +280,10 @@ class SMBO(object):
                 # can be taken by the intensifier until more data is
                 # available
                 self.logger.critical(f"SMBO will wait for resources")
+                try:
+                    self.logger.critical(self.tae_runner.client.get_worker_logs())
+                except Exception as e:
+                    pass
                 self.tae_runner.wait()
             else:
                 raise NotImplementedError("No other RunInfoIntent has been coded!")
