@@ -285,6 +285,7 @@ class SMBO(object):
                 except Exception as e:
                     pass
                 self.tae_runner.wait()
+                self.logger.critical(f"SMBO is done with  wait for resources")
             else:
                 raise NotImplementedError("No other RunInfoIntent has been coded!")
 
