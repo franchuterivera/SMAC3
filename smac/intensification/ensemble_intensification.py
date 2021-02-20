@@ -2,6 +2,7 @@ import logging
 import typing
 from collections import Counter
 from enum import Enum
+import json
 
 import numpy as np
 
@@ -13,6 +14,7 @@ from smac.runhistory.runhistory import (
     RunInfo,
     RunHistory,
     RunValue,
+    RunKey,
     StatusType
 )
 from smac.utils.io.traj_logging import TrajLogger
@@ -32,6 +34,11 @@ class EnsembleIntensifierStage(Enum):
     RUN_OLD_CHALLENGER_ON_HIGHER_REPEAT = 1
     # We toggle between RUN_NEW_CHALLENGER and investing resources in more repetitions
     INTENSIFY_MEMBERS_REPETITIONS = 2
+    # When transitioning from level N-1 to N, CV repetitions are initially 0,
+    # so we cannot trust really on this run. But if this configuration has better
+    # performance than the old level N-1 we quickly make it reach the highest repetition
+    # so ensemble selection can use it
+    INTENSIFY_LEVEL_TO_HIGHEST_REPEAT = 3
 
 
 class RobustEnsembleMembersIntensification(AbstractRacer):
@@ -87,6 +94,10 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
         # make sure instnaces are numeric
         self.instance2id = {element: i for i, element in enumerate(instances)}
         self.id2instance = {i: element for i, element in enumerate(instances)}
+        self.lowest_level = min([json.loads(instance)['level'] for instance in instances])
+        self.highest_level = max([json.loads(instance)['level'] for instance in instances])
+        self.lowest_repeat = min([json.loads(instance)['repeat'] for instance in instances])
+        self.highest_repeat = max([json.loads(instance)['repeat'] for instance in instances])
 
         super().__init__(stats=stats,
                          traj_logger=traj_logger,
@@ -187,6 +198,14 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
         elif self.stage == EnsembleIntensifierStage.RUN_OLD_CHALLENGER_ON_HIGHER_REPEAT:
             # Self.challenger stays the same. There is promise of a good result
             # with this configuration
+
+            # Run the config in the new repetition
+            instance_id = self.get_config_highest_instance(run_history=run_history,
+                                                           challenger=self.challenger) + 1
+        elif self.stage == EnsembleIntensifierStage.INTENSIFY_LEVEL_TO_HIGHEST_REPEAT:
+            # Self.challenger stays the same. There is promise of a good result
+            # with this configuration -- it just transitioned to a new level but repetitions of cv
+            # are not high enough for it to be ensembled
 
             # Run the config in the new repetition
             instance_id = self.get_config_highest_instance(run_history=run_history,
@@ -404,10 +423,23 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
                     # + Not enought number of configs to intensify repeats according to self.min_chall
                     # we want to keep finding new configurations
                     self.stage = EnsembleIntensifierStage.RUN_NEW_CHALLENGER
+        elif self.stage == EnsembleIntensifierStage.INTENSIFY_LEVEL_TO_HIGHEST_REPEAT:
+            if not self.is_performance_better_than_lower_level(run_history, run_info, result) or self.is_instance_on_max_cv_repetition(run_info):
+                # This configuration had a level transition, for example from level 1 to level 2
+                # We transition a configuration sorted by loss. So if the loss is better than before
+                # by all means we want to intensify it further. ONLY WHEN IT IS NOT GOOD ENOUGH ANYMORE
+                # we continue with the default flow, in this case getting a new challenger
+                # Ensemble builder will still use the old level=1 runs instead of level=2 as level=1 was better
+                #
+                # Also, just get it to the max repetition
+                self.stage = EnsembleIntensifierStage.RUN_NEW_CHALLENGER
         elif self.stage == EnsembleIntensifierStage.INTENSIFY_MEMBERS_REPETITIONS:
-            # we already spend budget on repetition intensification,
-            # toggle to find a better configuration
-            self.stage = EnsembleIntensifierStage.RUN_NEW_CHALLENGER
+            if self.is_level_transition(run_info) and self.is_performance_better_than_lower_level(run_history, run_info, result):
+                self.stage = EnsembleIntensifierStage.INTENSIFY_LEVEL_TO_HIGHEST_REPEAT
+            else:
+                # we already spend budget on repetition intensification,
+                # toggle to find a better configuration
+                self.stage = EnsembleIntensifierStage.RUN_NEW_CHALLENGER
 
         if incumbent is None:
             self.logger.info(
@@ -427,10 +459,94 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
         self.elapsed_time += (result.endtime - result.starttime)
         inc_perf = run_history.get_cost(incumbent)
 
-        representation = "\n".join([str((l, i, c.config_id)) for l, i, c in ensemble_members])
-        self.logger.info(f"Ensemble Intensification \n{old_stage}->{self.stage}\n(loss, Repetition, config_id): \n{representation}")
+        representation = "\n".join([str((l, i, self.id2instance[i], c.config_id)) for l, i, c in ensemble_members])
+        self.logger.info(f"Ensemble Intensification \n{old_stage}->{self.stage}\n(loss, instance_id, instance, config_id): \n{representation}")
 
         return incumbent, inc_perf
+
+    def is_level_transition(
+        self,
+        run_info: RunInfo,
+    ) -> bool:
+        """
+        From a config we can get the instance, and from the instance we can
+        see if we have a level transition. Level transition only counts if
+        we moved to a new level (we are not the lowest level) and cv repeats
+        are 0
+
+        Parameters
+        ----------
+        run_info : RunInfo
+               A RunInfo containing the configuration that was evaluated
+
+        Returns
+        -------
+        bool
+            If this instance means that we have a level transition
+        """
+        instance_dict = json.loads(run_info.instance)
+        level = instance_dict['level']
+        repeat = instance_dict['repeat']
+        return repeat == self.lowest_repeat and level > self.lowest_level
+
+    def is_performance_better_than_lower_level(
+        self,
+        run_history: RunHistory,
+        run_info: RunInfo,
+        result: RunValue,
+    ) -> bool:
+        """
+        What challenger to run next!
+
+        Parameters
+        ----------
+        run_info : RunInfo
+               A RunInfo containing the configuration that was evaluated
+        run_history : RunHistory
+            stores all runs we ran so far
+            if False, an evaluated configuration will not be generated again
+        result: RunValue
+             Contain the result (status and other methadata) of exercising
+             a challenger/incumbent.
+
+        Returns
+        -------
+        bool
+            If the performance on this level is better that on the past level
+        """
+        desired_level = json.loads(run_info.instance)['level'] - 1
+        for instance in self.instances:
+            instance_dict = json.loads(instance)
+            if int(instance_dict['level']) != int(desired_level):
+                continue
+            if int(instance_dict['repeat']) != int(self.highest_repeat):
+                continue
+            k = RunKey(run_history.config_ids[run_info.config], instance, run_info.seed, run_info.budget)
+            if k not in run_history.data:
+                # Exit the for loop to trigger the failure
+                break
+            # lower is better!!!
+            return run_history.data[k].cost > result.cost
+        raise ValueError(f"For RH={run_history.data.items()} and run_info={run_info} could not find lower score")
+
+    def is_instance_on_max_cv_repetition(
+        self,
+        run_info: RunInfo,
+    ) -> bool:
+        """
+        Is this run_info pointing to a config with max CV repetitions
+
+        Parameters
+        ----------
+        run_info : RunInfo
+               A RunInfo containing the configuration that was evaluated
+
+        Returns
+        -------
+        bool
+            If this config is on the max repetition available
+        """
+        return json.loads(run_info.instance)['repeat'] == self.highest_repeat
 
     def _next_challengers(self,
                           challengers: typing.Optional[typing.List[Configuration]],
