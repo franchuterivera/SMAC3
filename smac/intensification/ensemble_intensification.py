@@ -96,8 +96,8 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
         self.id2instance = {i: element for i, element in enumerate(instances)}
         self.lowest_level = min([json.loads(instance)['level'] for instance in instances])
         self.highest_level = max([json.loads(instance)['level'] for instance in instances])
-        self.lowest_repeat = min([json.loads(instance)['repeat'] for instance in instances])
-        self.highest_repeat = max([json.loads(instance)['repeat'] for instance in instances])
+        self.lowest_repeat = min([json.loads(instance)['repeats'] for instance in instances])
+        self.highest_repeat = max([json.loads(instance)['repeats'] for instance in instances])
 
         super().__init__(stats=stats,
                          traj_logger=traj_logger,
@@ -486,7 +486,7 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
         """
         instance_dict = json.loads(run_info.instance)
         level = instance_dict['level']
-        repeat = instance_dict['repeat']
+        repeat = instance_dict['repeats']
         return repeat == self.lowest_repeat and level > self.lowest_level
 
     def is_performance_better_than_lower_level(
@@ -519,7 +519,7 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
             instance_dict = json.loads(instance)
             if int(instance_dict['level']) != int(desired_level):
                 continue
-            if int(instance_dict['repeat']) != int(self.highest_repeat):
+            if int(instance_dict['repeats']) != int(self.highest_repeat):
                 continue
             k = RunKey(run_history.config_ids[run_info.config], instance, run_info.seed, run_info.budget)
             if k not in run_history.data:
@@ -546,7 +546,7 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
         bool
             If this config is on the max repetition available
         """
-        return json.loads(run_info.instance)['repeat'] == self.highest_repeat
+        return json.loads(run_info.instance)['repeats'] == self.highest_repeat
 
     def _next_challengers(self,
                           challengers: typing.Optional[typing.List[Configuration]],
