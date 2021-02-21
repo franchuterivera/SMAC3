@@ -189,10 +189,10 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
 
         # Run the given config recommended by BO model
         if self.stage == EnsembleIntensifierStage.RUN_NEW_CHALLENGER:
-            self.challenger = self._next_challengers(
-                challengers=challengers,
-                chooser=chooser,
-            )
+            self.challenger = self._next_challenger(challengers=challengers,
+                                                    chooser=chooser,
+                                                    run_history=run_history,
+                                                    repeat_configs=False)
             # Run the config in the new budget
             instance_id = 0
         elif self.stage == EnsembleIntensifierStage.RUN_OLD_CHALLENGER_ON_HIGHER_REPEAT:
@@ -547,40 +547,3 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
             If this config is on the max repetition available
         """
         return json.loads(run_info.instance)['repeats'] == self.highest_repeat
-
-    def _next_challengers(self,
-                          challengers: typing.Optional[typing.List[Configuration]],
-                          chooser: typing.Optional[EPMChooser]) \
-            -> _config_to_run_type:
-        """
-        What challenger to run next!
-
-        Parameters
-        ----------
-        challengers : typing.List[Configuration]
-            promising configurations to evaluate next
-        chooser : smac.optimizer.epm_configuration_chooser.EPMChooser
-            a sampler that generates next configurations to use for racing
-
-        Returns
-        -------
-        typing.Optional[typing.Generator[Configuration]]
-            A generator containing the next challengers to use
-        """
-
-        if challengers:
-            # iterate over challengers provided
-            self.logger.debug("Using challengers provided")
-            return challengers[0]
-        elif chooser:
-            # generating challengers on-the-fly if optimizer is given
-            try:
-                challenger = next(self.chall_gen)
-            except StopIteration:
-                self.logger.debug("Generating new challenger from optimizer -- after exhaustion")
-                self.chall_gen = chooser.choose_next()
-                challenger = next(self.chall_gen)
-            return challenger
-        else:
-            raise ValueError('No configurations/chooser provided. Cannot generate challenger!')
-
