@@ -373,7 +373,7 @@ class RobustEnsembleMembersIntensification(AbstractRacer):
             repetitions = [r for l, r, c in ensemble_members]
             repetitions_on_max = [r for r in repetitions if r == max(list(self.id2instance))]
 
-            if len(ensemble_members) < self.min_chall:
+            if len(run_history.config_ids) < self.min_chall:
                 # Not enough challengers to start intensification of repetitions
                 self.stage = EnsembleIntensifierStage.RUN_NEW_CHALLENGER
             else:
